@@ -1,1 +1,8 @@
 Leaf on Stem Image Dataset Beans (LSID-Beans)
+*.pth
+__pycache__
+runs
+Leaf on Stem Image Dataset Beans (LSID-Beans)*
+models
+resultados_csv
+graficos

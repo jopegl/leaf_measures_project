@@ -8,10 +8,10 @@ LR_BACKBONE = 1e-4
 LR_HEAD = 1e-3
 WEIGHT_DECAY = 1e-4
 
-ITERS = 20000
-VAL_INTERVAL = 250
-BATCH_SIZE = 16
-
+ITERS = 45000
+VAL_INTERVAL = 500
+BATCH_SIZE = 4
+# 
 NUM_WORKERS = 4
 PIN_MEMORY = True
 
@@ -23,11 +23,9 @@ HUBER_BETA = 0.1
 DEFAULT_HEIGHT = 512
 DEFAULT_WIDTH = 512
 
-# --------------------------------------------------------------------
-# Caminhos. ROOT aponta pra pasta do dataset; os splits ficam em
-# cross-validation/cv_1/split_1/{train,val,test}.csv
-# --------------------------------------------------------------------
+
 ROOT = r"Leaf on Stem Image Dataset Beans (LSID-Beans)\LSID-Beans"
+
 SPLIT_DIR = r"Leaf on Stem Image Dataset Beans (LSID-Beans)\cross-validation\cv_1\split_1"
 
 TRAIN_CSV = SPLIT_DIR + r"\train.csv"

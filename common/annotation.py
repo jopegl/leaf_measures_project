@@ -6,9 +6,15 @@ import xml.etree.ElementTree as ET
 
 
 def strip_known_suffix(name: str) -> str:
-    for suffix in ("_area", "_segmentation", "_annotation", "_image"):
-        if name.endswith(suffix):
-            return name[: -len(suffix)]
+    suffixes = ("_area", "_segmentation", "_annotation", "_image")
+    changed = True
+    while changed:
+        changed = False
+        for suffix in suffixes:
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+                changed = True
+                break
     return name
 
 

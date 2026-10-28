@@ -222,3 +222,15 @@ class LSIDBeansDataset(Dataset):
             seg_mask = torch.flip(seg_mask, dims=[0])
 
         return image, seg_mask
+
+class LSIDBeansMaskedMeasuresDataset(LSIDBeansDataset):
+    LEAF_ID = 1
+    MARKER_ID = 2
+
+    def __getitem__(self, idx):
+        item = super().__getitem__(idx)
+        seg = item.pop("seg_mask")
+        item["masks"] = torch.stack(
+            [(seg == self.LEAF_ID), (seg == self.MARKER_ID)], dim=0
+        ).float()
+        return item
