@@ -1,0 +1,15 @@
+# Teste rápido do pipeline (poucos minutos): 1 fold, poucas iterações, resnet18.
+#   python train.py -c configs/experiments/smoke_test.yaml
+#   python evaluate.py -c configs/experiments/smoke_test.yaml --light
+_base_: ../base.yaml
+folds:
+  cvs: [1]
+  splits: [1]
+model:
+  backbone: resnet18
+train:
+  iters: 60
+  val_interval: 20
+  log_every: 10
+  freeze_backbone_validations: 1
+  num_workers: 0

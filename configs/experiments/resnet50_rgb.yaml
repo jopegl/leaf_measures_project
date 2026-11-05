@@ -1,0 +1,4 @@
+# Antigo train_resnet_measures.py: ResNet-50 com a imagem RGB inteira.
+_base_: ../base.yaml
+experiment:
+  label: ResNet-50 (RGB)

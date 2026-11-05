@@ -1,0 +1,11 @@
+# Exemplo: herda de outro experimento e troca só o backbone.
+_base_: resnet50_hadamard.yaml
+experiment:
+  label: ConvNeXt-Tiny + Hadamard
+data:
+  imagenet_normalize: true
+model:
+  backbone: convnext_tiny
+train:
+  batch_size: 8
+  amp: true

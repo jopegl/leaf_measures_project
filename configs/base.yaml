@@ -1,0 +1,56 @@
+# Config base. Todo experimento herda daqui com `_base_: ../base.yaml`
+# e só redefine o que muda. Os valores abaixo reproduzem o antigo resnet_config.py.
+
+experiment:
+  name: null            # padrão: nome do arquivo YAML do experimento
+  label: null           # rótulo nos gráficos de comparação (padrão: name)
+  output_dir: runs      # checkpoints em runs/<name>/<fold>/{best,last}.pth
+  seed: 42
+
+data:
+  root: "Leaf on Stem Image Dataset Beans (LSID-Beans)/LSID-Beans"
+  cv_root: "Leaf on Stem Image Dataset Beans (LSID-Beans)/cross-validation"
+  height: 512
+  width: 512
+  augment: true             # rotações de 90° + flips (só no treino)
+  imagenet_normalize: false # false = igual ao código antigo (entrada em [0, 1])
+
+folds:                      # cv_<cvs>/split_<splits>; filtre com --folds cv1_split1 ...
+  cvs: [1, 2, 3, 4, 5]
+  splits: [1, 2, 3, 4, 5]
+
+input:
+  mode: rgb                 # rgb | hadamard | mask_concat  (ver leaf_measures/models/inputs.py)
+
+model:
+  name: regressor           # modelo registrado em MODELS
+  backbone: resnet50        # qualquer nome de torchvision.models.get_model
+  pretrained: true
+  extra_channels_init: zeros   # canais além do RGB na 1ª conv: zeros (original) | mean
+  head:
+    hidden_dims: [256]
+    dropout: 0.3
+
+train:
+  iters: 45000
+  val_interval: 500
+  log_every: 100
+  batch_size: 4
+  num_workers: 4
+  pin_memory: true
+  lr_backbone: 1.0e-4
+  lr_head: 1.0e-3
+  weight_decay: 1.0e-4
+  pct_start: 0.1            # OneCycleLR
+  freeze_backbone_validations: 2   # backbone congelado nas N primeiras validações
+  grad_clip: 5.0
+  amp: false                # mixed precision (só em CUDA)
+
+loss:
+  type: huber               # huber | mse
+  huber_beta: 0.1
+  weights: [1.0, 1.0, 1.0, 5.0]   # length, width, perimeter, area
+
+eval:
+  batch_size: 4
+  results_dir: results

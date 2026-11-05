@@ -1,0 +1,8 @@
+# Exemplo de outro backbone: só muda o nome.
+_base_: ../base.yaml
+experiment:
+  label: EfficientNet-B0 (RGB)
+data:
+  imagenet_normalize: true
+model:
+  backbone: efficientnet_b0

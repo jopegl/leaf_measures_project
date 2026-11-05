@@ -1,0 +1,6 @@
+# Antigo train_resnet_hadamard.py: imagem multiplicada pela união das máscaras GT (folha + marcador).
+_base_: ../base.yaml
+experiment:
+  label: ResNet-50 + Hadamard
+input:
+  mode: hadamard

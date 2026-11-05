@@ -1,8 +1,23 @@
-Leaf on Stem Image Dataset Beans (LSID-Beans)
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Dados e saídas (barra no início = só na raiz do repo;
+# assim pastas como leaf_measures/models/ NÃO são ignoradas)
+/Leaf on Stem Image Dataset Beans (LSID-Beans)*/
+/runs/
+/results/
 *.pth
-__pycache__
-runs
-Leaf on Stem Image Dataset Beans (LSID-Beans)*
-models
-resultados_csv
-graficos
+*.pt
+
+# Saídas do layout antigo
+/graficos/
+/resultados_csv/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
