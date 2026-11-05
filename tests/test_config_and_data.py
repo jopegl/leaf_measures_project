@@ -38,7 +38,7 @@ def test_folds_and_splits(fake_dataset):
     folds = discover_folds(fake_dataset["cv_root"])
     assert [f.id for f in folds] == ["cv1_split1"]
     ids = load_split_ids(folds[0].csv("test"))
-    assert ids == set(fake_dataset["ids"][10:])
+    assert ids == set(fake_dataset["ids"][10:12])
 
     cfg = load_config(os.path.join(EXP, "resnet50_rgb.yaml"), [f"data.cv_root={fake_dataset['cv_root']}"])
     assert len(folds_from_config(cfg)) == 25

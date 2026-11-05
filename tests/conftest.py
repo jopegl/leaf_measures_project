@@ -36,7 +36,7 @@ def fake_dataset(tmp_path):
     for leaf in ("leaf_01", "leaf_02"):
         for d in ("annotation", "images", "segmentation"):
             (root / leaf / d).mkdir(parents=True)
-        for i in range(6):
+        for i in range(12):
             sid = f"{leaf}_img{i}"
             ids.append(sid)
             (root / leaf / "annotation" / f"{sid}_annotation.xml").write_text(XML.format(
@@ -51,7 +51,7 @@ def fake_dataset(tmp_path):
 
     split_dir = cv_root / "cv_1" / "split_1"
     split_dir.mkdir(parents=True)
-    for name, part in (("train", ids[:8]), ("val", ids[8:10]), ("test", ids[10:])):
+    for name, part in (("train", ids[:8]), ("val", ids[8:10]), ("test", ids[10:12])):
         (split_dir / f"{name}.csv").write_text("\n".join(f"{s}.jpg" for s in part) + "\n")
     return {"root": str(root), "cv_root": str(cv_root), "tmp": tmp_path, "ids": ids}
 
