@@ -18,12 +18,25 @@ IMG_STD = [0.229, 0.224, 0.225]
 MODEL_INFO = {
     'resnet': {'nome': 'ResNetRegressor', 'rotulo': 'ResNet', 'cor': 'steelblue'},
     'resnet_mask': {'nome': 'ResNetMaskRegressor', 'rotulo': 'ResNet + máscara', 'cor': 'seagreen'},
+    'resnet_hadamard': {'nome': 'ResNetRegressor (Hadamard, máscaras GT)', 'rotulo': 'ResNet + Hadamard', 'cor': 'mediumpurple'},
     'deeplab': {'nome': 'DeepLab multi-tarefa', 'rotulo': 'DeepLab', 'cor': 'darkorange'},
 }
 
 
 def _ensure_dir(path):
     os.makedirs(path, exist_ok=True)
+
+
+def apply_hadamard_mask(images, masks):
+    """
+    Mesmo produto de Hadamard usado no train_resnet_hadamard.py:
+    mantém visíveis apenas folha + marcador (união dos 2 canais da máscara).
+
+    images: [B, 3, H, W]  (já normalizada pelo dataset)
+    masks:  [B, 2, H, W]  (canal 0 = folha, canal 1 = marcador)
+    """
+    union = (masks > 0.5).any(dim=1, keepdim=True).to(images.dtype)
+    return images * union
 
 
 def _plot_pred_vs_real(measure_name, preds, targets, save_dir, model_tag):
@@ -216,7 +229,35 @@ def save_segmentation_examples(model, test_dataset, device, num_classes, model_t
     print(f'Exemplos de segmentação salvos em: {save_dir}')
 
 
-def _run_regression_eval(model, test_loader, device, use_masks):
+def save_hadamard_examples(test_dataset, model_tag, num_examples=4):
+    """Salva exemplos da entrada da rede (imagem após o Hadamard), para conferir visualmente a máscara."""
+    save_dir = os.path.join(GRAPHICS_ROOT, model_tag, 'entradas_hadamard')
+    _ensure_dir(save_dir)
+    num_examples = min(num_examples, len(test_dataset))
+    vis_loader = torch.utils.data.DataLoader(test_dataset, batch_size=num_examples, shuffle=True, num_workers=0)
+    batch = next(iter(vis_loader))
+    masked = apply_hadamard_mask(batch['image'], batch['masks'])
+    for i in range(masked.size(0)):
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        axes[0].imshow(_denormalize_image(batch['image'][i]))
+        axes[0].set_title('Imagem original')
+        axes[0].axis('off')
+        axes[1].imshow(_denormalize_image(masked[i]))
+        axes[1].set_title('Entrada da rede (folha + marcador)')
+        axes[1].axis('off')
+        fig.tight_layout()
+        fig.savefig(os.path.join(save_dir, f'exemplo_{i + 1:02d}.png'), dpi=150)
+        plt.close(fig)
+    print(f'Exemplos de entrada com Hadamard salvos em: {save_dir}')
+
+
+def _run_regression_eval(model, test_loader, device, input_mode='image'):
+    """
+    input_mode:
+      'image'    -> model(images)
+      'masks'    -> model(images, masks)             (ResNetMaskRegressor)
+      'hadamard' -> model(images * união das máscaras) (ResNet + Hadamard)
+    """
     preds_by_measure = {name: [] for name in MEASURE_ORDER}
     targets_by_measure = {name: [] for name in MEASURE_ORDER}
     sample_names = []
@@ -224,9 +265,12 @@ def _run_regression_eval(model, test_loader, device, use_masks):
         for batch in test_loader:
             images = batch['image'].to(device, non_blocking=True)
             target = build_target_tensor(batch, device)
-            if use_masks:
+            if input_mode == 'masks':
                 masks = batch['masks'].to(device, non_blocking=True)
                 out = model(images, masks)
+            elif input_mode == 'hadamard':
+                masks = batch['masks'].to(device, non_blocking=True)
+                out = model(apply_hadamard_mask(images, masks))
             else:
                 out = model(images)
             out_denorm = denormalize_columns(out.detach().cpu())
@@ -271,7 +315,7 @@ def evaluate_resnet(chosen_cv, chosen_split):
     model.eval()
     print(f"Checkpoint carregado: {caminho_modelo} (iteração {checkpoint.get('iteration')})")
     print(f'Imagens de teste: {len(test_dataset)}')
-    preds_by_measure, targets_by_measure, sample_names = _run_regression_eval(model, test_loader, device, use_masks=False)
+    preds_by_measure, targets_by_measure, sample_names = _run_regression_eval(model, test_loader, device, input_mode='image')
     results = _report_regression('resnet', 'ResNetRegressor', preds_by_measure, targets_by_measure, sample_names,
                                  sub_dir=f'cv{chosen_cv}_split{chosen_split}')
     return {'model': 'resnet', 'metrics': results}
@@ -291,10 +335,35 @@ def evaluate_resnet_mask(chosen_cv, chosen_split):
     model.eval()
     print(f"Checkpoint carregado: {caminho_modelo} (iteração {checkpoint.get('iteration')})")
     print(f'Imagens de teste: {len(test_dataset)}')
-    preds_by_measure, targets_by_measure, sample_names = _run_regression_eval(model, test_loader, device, use_masks=True)
+    preds_by_measure, targets_by_measure, sample_names = _run_regression_eval(model, test_loader, device, input_mode='masks')
     results = _report_regression('resnet_mask', 'ResNetMaskRegressor, máscaras ground truth', preds_by_measure, targets_by_measure, sample_names,
                                  sub_dir=f'cv{chosen_cv}_split{chosen_split}')
     return {'model': 'resnet_mask', 'metrics': results}
+
+
+def evaluate_resnet_hadamard(chosen_cv, chosen_split):
+    from models.resnet_regressor import ResNetRegressor
+    from configs import resnet_config as cfg
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    caminho_split = os.path.join('Leaf on Stem Image Dataset Beans (LSID-Beans)', 'cross-validation', f'cv_{chosen_cv}', f'split_{chosen_split}', 'test.csv')
+    caminho_modelo = os.path.join('runs', 'resnet50_hadamard', f'resnet50_hadamard_best_model_cv{chosen_cv}_split{chosen_split}.pth')
+    if not os.path.exists(caminho_modelo):
+        print(f'Checkpoint não encontrado: {caminho_modelo}')
+        return None
+    # Dataset com máscaras GT; o Hadamard é aplicado na hora do forward, igual ao treino.
+    test_dataset = LSIDBeansMaskedMeasuresDataset(root_dir=cfg.ROOT, split_file=caminho_split, augment=False)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.NUM_WORKERS, pin_memory=cfg.PIN_MEMORY)
+    model = ResNetRegressor(backbone_name=cfg.BACKBONE, num_outputs=cfg.NUM_OUTPUTS, pretrained=False).to(device)
+    checkpoint = torch.load(caminho_modelo, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    print(f"Checkpoint carregado: {caminho_modelo} (iteração {checkpoint.get('iteration')})")
+    print(f'Imagens de teste: {len(test_dataset)}')
+    preds_by_measure, targets_by_measure, sample_names = _run_regression_eval(model, test_loader, device, input_mode='hadamard')
+    results = _report_regression('resnet_hadamard', 'ResNet + Hadamard, máscaras ground truth', preds_by_measure, targets_by_measure, sample_names,
+                                 sub_dir=f'cv{chosen_cv}_split{chosen_split}')
+    save_hadamard_examples(test_dataset, 'resnet_hadamard', num_examples=4)
+    return {'model': 'resnet_hadamard', 'metrics': results}
 
 
 def evaluate_deeplab():
@@ -364,8 +433,9 @@ def main():
         print('  [1] ResNet')
         print('  [2] DeepLab')
         print('  [3] ResNet com máscara')
-        print('  [4] Sair')
-        escolha = input('Digite sua opção (1/2/3/4): ').strip()
+        print('  [4] ResNet com Hadamard (máscaras GT)')
+        print('  [5] Sair')
+        escolha = input('Digite sua opção (1/2/3/4/5): ').strip()
         if escolha in ('1', 'resnet', 'ResNet'):
             cv, fold = _ask_cv_and_fold()
             all_results.append(evaluate_resnet(cv, fold))
@@ -374,7 +444,12 @@ def main():
         elif escolha in ('3', 'mask', 'resnet_mask'):
             cv, fold = _ask_cv_and_fold()
             all_results.append(evaluate_resnet_mask(cv, fold))
-        elif escolha in ('4', 'sair', 'exit', 'q'):
+        elif escolha in ('4', 'hadamard', 'resnet_hadamard'):
+            cv, fold = _ask_cv_and_fold()
+            result = evaluate_resnet_hadamard(cv, fold)
+            if result is not None:
+                all_results.append(result)
+        elif escolha in ('5', 'sair', 'exit', 'q'):
             print('Encerrando o script.')
             break
         else:
