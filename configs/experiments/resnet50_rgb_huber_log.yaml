@@ -1,0 +1,9 @@
+# Igual ao resnet50_rgb (baseline), mudando SÓ a perda: Huber sobre o log das medidas reais.
+# Mede erro relativo, como o RER: folhas pequenas passam a pesar proporcionalmente mais.
+# huber_beta em escala log: 0.05 ≈ 5% de erro (abaixo disso a perda é quadrática, acima é linear).
+_base_: resnet50_rgb.yaml
+experiment:
+  label: ResNet-50 (RGB) + Huber log
+loss:
+  type: huber_log
+  huber_beta: 0.05

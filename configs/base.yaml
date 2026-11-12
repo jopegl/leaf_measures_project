@@ -47,8 +47,8 @@ train:
   amp: false                # mixed precision (só em CUDA)
 
 loss:
-  type: huber               # huber | mse
-  huber_beta: 0.1
+  type: huber               # huber | mse | huber_log | mse_log | l1_log  (ver training/losses.py)
+  huber_beta: 0.1           # em huber: escala normalizada 0–1; em huber_log: escala log (0.05 ≈ 5%)
   weights: [1.0, 1.0, 1.0, 5.0]   # length, width, perimeter, area
 
 eval:

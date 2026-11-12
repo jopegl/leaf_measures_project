@@ -167,6 +167,21 @@ Para testar uma hipótese nova (por exemplo, "folhas com mancha erram mais"), ad
 característica em `leaf_measures/analysis/features.py` (cálculo + uma linha em `FEATURE_INFO`)
 e rode com `--recompute-features`.
 
+## Função de perda
+
+Em `loss.type` no YAML:
+
+| Opção | O que mede |
+|---|---|
+| `huber` (padrão) | Huber nas medidas normalizadas (0–1): erro **absoluto** |
+| `mse` | erro quadrático nas medidas normalizadas |
+| `huber_log` | Huber entre os **logs** das medidas reais: erro **relativo**, como o RER |
+| `mse_log` | MSLE: erro quadrático entre os logs |
+| `l1_log` | erro absoluto entre os logs |
+
+Nas versões `_log`, o `huber_beta` também fica em escala log (0,05 ≈ 5% de erro). O exemplo
+`configs/experiments/resnet50_rgb_huber_log.yaml` é o baseline trocando só a perda.
+
 ## Como adicionar coisas novas
 
 ### Um novo backbone

@@ -25,7 +25,7 @@ from leaf_measures.evaluation.inference import run_inference
 from leaf_measures.evaluation.metrics import compute_metrics
 from leaf_measures.models import build_model_and_inputs
 from leaf_measures.training.checkpoint import resume_if_possible, save_checkpoint
-from leaf_measures.training.losses import weighted_measures_loss
+from leaf_measures.training.losses import LOSS_TYPES, weighted_measures_loss
 from leaf_measures.deep_viewer import TRAIN_SHEET, TrainSheetWriter
 from leaf_measures.training.run_log import TrainWindow, append_log_row, init_log_csv, now, print_val_block
 
@@ -66,6 +66,8 @@ def make_loss_fn(cfg, device):
     weights = torch.tensor(cfg.loss.weights, dtype=torch.float32, device=device)
     if len(weights) != len(MEASURE_ORDER):
         raise ValueError(f"loss.weights precisa ter {len(MEASURE_ORDER)} valores ({MEASURE_ORDER})")
+    if cfg.loss.type not in LOSS_TYPES:  # falha já no início, não no meio do treino
+        raise ValueError(f"loss.type '{cfg.loss.type}' desconhecido. Opções: {LOSS_TYPES}")
     return partial(
         weighted_measures_loss,
         weights=weights,
