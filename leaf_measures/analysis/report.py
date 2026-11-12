@@ -132,7 +132,8 @@ def folders_plot(folders_df, global_mean, path, top=20):
 
 
 # ------------------------------------------------------------------ relatório
-def write_experiment_report(exp, table, clues, stat_tables, out_dir, top_n=12, quantile=0.1, images=True):
+def write_experiment_report(exp, table, clues, stat_tables, out_dir, top_n=12, quantile=0.1, images=True,
+                            level="imagem"):
     for sub in ("graficos", "imagens"):  # remove saídas de execuções anteriores
         shutil.rmtree(os.path.join(out_dir, sub), ignore_errors=True)
     os.makedirs(out_dir, exist_ok=True)
@@ -176,20 +177,26 @@ def write_experiment_report(exp, table, clues, stat_tables, out_dir, top_n=12, q
         if len(plotted) >= 8:
             break
 
-    _write_markdown(exp, table, clues, multi, out_dir, quantile, top_n)
+    _write_markdown(exp, table, clues, multi, out_dir, quantile, top_n, level)
 
 
-def _write_markdown(exp, table, clues, multi, out_dir, quantile, top_n):
+def _write_markdown(exp, table, clues, multi, out_dir, quantile, top_n, level="imagem"):
     pct = int(round(quantile * 100))
+    unit = "folhas" if level == "folha" else "imagens"
     L = [f"# Análise de erros — {exp}", "",
-         f"_Gerado em {datetime.now():%d/%m/%Y %H:%M} · {len(table)} imagens de teste · "
-         f"erro por imagem = média sobre os folds em que a imagem foi testada (até {int(table['n_folds'].max())})._", "",
+         f"_Gerado em {datetime.now():%d/%m/%Y %H:%M} · {len(table)} {unit} de teste · "
+         f"erro por {level} = média sobre os folds em que ela foi testada (até {int(table['n_folds'].max())})._", ""]
+    if level == "folha":
+        L += ["_Análise por FOLHA: cada linha é uma folha; as características são a média das imagens dela "
+              "e as grades mostram a primeira imagem de cada folha. Características do tipo sim/não viram "
+              "a fração das imagens da folha._", ""]
+    L += [
          "## Resumo", ""]
     for m in MEASURE_ORDER:
         if f"{m}_rer" in table:
             r = table[f"{m}_rer"]
             L.append(f"- **{MEASURE_PT[m].capitalize()}**: RER mediano {r.median():.2f}%, "
-                     f"90% das imagens abaixo de {r.quantile(0.9):.2f}%, pior {r.max():.2f}%")
+                     f"90% das {unit} abaixo de {r.quantile(0.9):.2f}%, pior {r.max():.2f}%")
     L += ["", "## Indícios encontrados", ""]
     main = [c for c in clues if c.strength in ("forte", "moderado")]
     if not main:
