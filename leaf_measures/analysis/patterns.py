@@ -231,7 +231,7 @@ def find_clues(table: pd.DataFrame, quantile: float = 0.1) -> tuple[list[Clue], 
     }
     clues: list[Clue] = []
     if len(table) < MIN_N:
-        print(f"[AVISO] só {len(table)} imagens: são necessárias pelo menos {MIN_N} para buscar padrões. "
+        print(f"[AVISO] só {len(table)} amostras: são necessárias pelo menos {MIN_N} para buscar padrões. "
               "Os rankings de piores/melhores continuam valendo.")
     _add_q_values(tables["correlacoes"], tables["piores_vs_demais"])
     clues += _feature_clues(table, tables["correlacoes"], tables["piores_vs_demais"], quantile)

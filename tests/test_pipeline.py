@@ -34,6 +34,15 @@ def test_train_resume_and_evaluate(fake_dataset, mode):
     assert os.path.isfile(paths["best"]) and os.path.isfile(paths["last"])
     assert torch.load(paths["last"])["iteration"] == 4
 
+    # planilha de treino do Deep Viewer: iterações 2 e 4, cada uma uma vez, val_loss preenchido
+    import pandas as pd
+    from leaf_measures.deep_viewer import TRAIN_SHEET, TEST_SHEET, train_columns
+    sheet = pd.read_csv(os.path.join(paths["dir"], TRAIN_SHEET))
+    assert list(sheet.columns) == train_columns()
+    assert list(sheet["iteration"]) == [2, 4]
+    assert sheet["train_loss"].notna().all() and sheet["val_loss"].notna().all()
+    assert (sheet["train_rer_area"] > 0).all()
+
     # rodar de novo: o fold já está completo e é pulado (retomada via last.pth)
     mtime = os.path.getmtime(paths["last"])
     cfg2 = load_config(BASE_EXP, make_overrides(fake_dataset, **{"input.mode": mode, "experiment.name": f"t_{mode}"}))
@@ -52,6 +61,9 @@ def test_train_resume_and_evaluate(fake_dataset, mode):
     for f in ("summary.json", "resumo_rer.csv", "resumo_metricas.csv"):
         assert os.path.isfile(os.path.join(out, f))
     assert os.path.isfile(os.path.join(out, "cv1_split1", "predicoes", "area_predictions.csv"))
+    test_sheet = pd.read_csv(os.path.join(out, "cv1_split1", TEST_SHEET))
+    assert len(test_sheet) == 2 and "pred_area" in test_sheet and test_sheet["sample_id"].is_unique
+    assert list(pd.read_csv(os.path.join(paths["dir"], TRAIN_SHEET))["iteration"]) == [2, 4]  # sem duplicar
     assert json.load(open(os.path.join(out, "summary.json")))["input_mode"] == mode
 
 

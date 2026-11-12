@@ -4,6 +4,7 @@ Avaliação no TESTE de um experimento (todos os folds com best.pth).
 Saída em results/<experimento>/:
   <fold>/graficos/*.png               (modo completo)
   <fold>/predicoes/<medida>_predictions.csv
+  <fold>/deepviewer_test.csv          (planilha de teste no formato do Deep Viewer)
   cv<N>/media_ponderada/*.png         (modo completo)
   geral/*.png                         (modo completo)
   entradas/*.png                      (exemplos da entrada da rede, se o modo usa máscara)
@@ -20,6 +21,7 @@ import os
 import torch
 
 from leaf_measures.data import MEASURE_ORDER, Fold, build_dataset
+from leaf_measures.deep_viewer import TEST_SHEET, write_test_sheet
 from leaf_measures.evaluation import plots
 from leaf_measures.evaluation.inference import run_inference
 from leaf_measures.evaluation.metrics import METRIC_KEYS, compute_metrics, weighted_average
@@ -64,6 +66,7 @@ def evaluate_fold(cfg, fold: Fold, device, full: bool = True) -> dict | None:
     preds_np = {n: v.numpy() for n, v in res["preds"].items()}
     targets_np = {n: v.numpy() for n, v in res["targets"].items()}
     save_predictions_csv(res["names"], preds_np, targets_np, os.path.join(out_dir, "predicoes"))
+    write_test_sheet(os.path.join(out_dir, TEST_SHEET), res["names"], preds_np, targets_np)
     if full:
         plots.fold_plots(cfg.experiment.name, metrics, preds_np, targets_np, os.path.join(out_dir, "graficos"))
 

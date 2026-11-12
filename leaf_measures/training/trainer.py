@@ -26,7 +26,8 @@ from leaf_measures.evaluation.metrics import compute_metrics
 from leaf_measures.models import build_model_and_inputs
 from leaf_measures.training.checkpoint import resume_if_possible, save_checkpoint
 from leaf_measures.training.losses import weighted_measures_loss
-from leaf_measures.training.run_log import append_log_row, init_log_csv, now, print_val_block
+from leaf_measures.deep_viewer import TRAIN_SHEET, TrainSheetWriter
+from leaf_measures.training.run_log import TrainWindow, append_log_row, init_log_csv, now, print_val_block
 
 
 def run_dir(cfg) -> str:
@@ -144,6 +145,16 @@ def train_fold(cfg, fold: Fold, device) -> FoldResult:
         print(f"Fold {fold.id} já treinado ({iteration}/{t.iters}). Pulando.")
         return FoldResult(fold.id, best_val_loss, paths["best"])
 
+    dv_sheet = TrainSheetWriter(os.path.join(paths["dir"], TRAIN_SHEET), start_iteration=iteration)
+    window = TrainWindow()
+
+    def log_train_window():
+        avg = window.averages()
+        dv_sheet.log_train(iteration, avg["loss"], optimizer.param_groups[0]["lr"],
+                           avg["loss_parts"], avg["mae"], avg["rer"])
+        window.reset()
+        return avg
+
     print(f"Começando fold {fold.id} [{now()}]")
     while iteration < t.iters:
         model.train()
@@ -171,12 +182,14 @@ def train_fold(cfg, fold: Fold, device) -> FoldResult:
             scaler.update()
             scheduler.step()
             iteration += 1
+            window.add(loss, per_comp, out, target)
 
             if iteration % t.log_every == 0:
                 lr = optimizer.param_groups[0]["lr"]
-                comps = " ".join(f"{n[0].upper()}={v:.4f}" for n, v in zip(MEASURE_ORDER, per_comp.tolist()))
+                avg = log_train_window()
+                comps = " ".join(f"{n[0].upper()}={avg['loss_parts'][n]:.4f}" for n in MEASURE_ORDER)
                 print(f"[{fold.id} | {now()}] Iter [{iteration}/{t.iters}] LR: {lr:.8f} "
-                      f"Loss: {loss.item():.4f} ({comps})")
+                      f"Loss (média {t.log_every} it): {avg['loss']:.4f} ({comps})")
 
             if iteration % t.val_interval == 0:
                 if not unfrozen and iteration >= unfreeze_at:
@@ -189,6 +202,10 @@ def train_fold(cfg, fold: Fold, device) -> FoldResult:
                 lr = optimizer.param_groups[0]["lr"]
                 print_val_block(f"Val {fold.id}", res["loss"], metrics, iteration, t.iters, lr)
                 append_log_row(log_csv, fold.id, iteration, lr, res["loss"], metrics)
+                if window.n:  # validação fora de um múltiplo de log_every: fecha a janela aqui
+                    log_train_window()
+                dv_sheet.log_val(iteration, res["loss"], res["loss_parts"], metrics)
+                dv_sheet.flush()  # antes do checkpoint: o CSV nunca fica atrás do last.pth
 
                 improved = res["loss"] < best_val_loss
                 if improved:
@@ -213,7 +230,11 @@ def train_fold(cfg, fold: Fold, device) -> FoldResult:
                 save_checkpoint(paths["last"], **state)
                 model.train()
 
+    if window.n:
+        log_train_window()
+    dv_sheet.flush()
     print(f"\nFold {fold.id} finalizado. Melhor val loss: {best_val_loss:.4f}")
+    print(f"Planilha de treino (Deep Viewer): {os.path.join(paths['dir'], TRAIN_SHEET)}")
     return FoldResult(fold.id, best_val_loss, paths["best"])
 
 
